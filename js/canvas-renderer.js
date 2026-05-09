@@ -56,8 +56,9 @@ class CanvasRenderer {
     const { width, height } = this.canvas;
     const ctx = this.ctx;
 
-    // 清屏
-    ctx.clearRect(0, 0, width, height);
+    // 清屏 (canvas 使用 DPR 缩放，需用 CSS 像素坐标)
+    const dpr = window.devicePixelRatio || 1;
+    ctx.clearRect(0, 0, width / dpr, height / dpr);
 
     // 绘制网格
     this.drawGrid();

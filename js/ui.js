@@ -89,7 +89,7 @@ class UIManager {
       // 存量: value
       html += `<div class="props-row">`;
       html += `<div class="props-group"><label>存量值</label>`;
-      html += `<input type="number" id="prop-value" value="${node.value}" step="any" data-field="value"></div>`;
+      html += `<input type="number" id="prop-value" value="${node.value}" step="10" data-field="value"></div>`;
       html += `<div class="props-group"><label>单位</label>`;
       html += `<input type="text" id="prop-unit" value="${this.escapeHtml(node.unit || '')}" data-field="unit"></div>`;
       html += `</div>`;
@@ -102,7 +102,7 @@ class UIManager {
       html += `</select></div>`;
       html += `<div class="props-row">`;
       html += `<div class="props-group"><label>速率</label>`;
-      html += `<input type="number" id="prop-rate" value="${node.rate}" step="any" data-field="rate"></div>`;
+      html += `<input type="number" id="prop-rate" value="${node.rate}" step="10" data-field="rate"></div>`;
       html += `<div class="props-group"><label>单位</label>`;
       html += `<input type="text" id="prop-unit" value="${this.escapeHtml(node.unit || '')}" data-field="unit"></div>`;
       html += `</div>`;
@@ -115,9 +115,9 @@ class UIManager {
     // 位置
     html += `<div class="props-row">`;
     html += `<div class="props-group"><label>X</label>`;
-    html += `<input type="number" id="prop-x" value="${Math.round(node.x)}" step="1" data-field="x"></div>`;
+      html += `<input type="number" id="prop-x" value="${Math.round(node.x)}" step="10" data-field="x"></div>`;
     html += `<div class="props-group"><label>Y</label>`;
-    html += `<input type="number" id="prop-y" value="${Math.round(node.y)}" step="1" data-field="y"></div>`;
+      html += `<input type="number" id="prop-y" value="${Math.round(node.y)}" step="10" data-field="y"></div>`;
     html += `</div>`;
 
     // 操作按钮
@@ -165,7 +165,7 @@ class UIManager {
 
     // 流量速率
     html += `<div class="props-group"><label>流量速率</label>`;
-    html += `<input type="number" id="prop-flowRate" value="${conn.flowRate}" step="any" data-field="flowRate"></div>`;
+      html += `<input type="number" id="prop-flowRate" value="${conn.flowRate}" step="10" data-field="flowRate"></div>`;
 
     // 反馈方向 (正/负)
     html += `<div class="props-group"><label>反馈方向</label>`;
@@ -195,14 +195,18 @@ class UIManager {
     });
   }
 
-  /** 为属性面板的输入控件绑定变更事件 */
+  /** 为属性面板的输入控件绑定变更事件（使用替换克隆节点清除旧监听器，避免重复绑定） */
   bindPropsInputEvents(target) {
     const inputs = this.propContent.querySelectorAll('input[data-field], select[data-field], textarea[data-field]');
     inputs.forEach(input => {
-      const field = input.dataset.field;
-      input.addEventListener('change', () => {
-        let value = input.value;
-        if (input.type === 'number') value = parseFloat(value);
+      // 清除旧监听器: 克隆节点并替换原节点
+      const clone = input.cloneNode(true);
+      input.parentNode.replaceChild(clone, input);
+
+      const field = clone.dataset.field;
+      clone.addEventListener('change', () => {
+        let value = clone.value;
+        if (clone.type === 'number') value = parseFloat(value);
         if (field === 'isSource') value = value === 'true';
 
         if (this.model.selectedType === 'node') {
@@ -221,6 +225,16 @@ class UIManager {
     this.contextMenu.style.left = x + 'px';
     this.contextMenu.style.top = y + 'px';
 
+    // 右键点击的节点也选中（需先选中，后续菜单项判断才能反映当前选中状态）
+    const world = this.app.renderer.s2w(
+      x - this.app.canvas.getBoundingClientRect().left,
+      y - this.app.canvas.getBoundingClientRect().top
+    );
+    const node = findNodeAt(world.x, world.y, this.model.nodes);
+    if (node) {
+      this.model.selectNode(node.id);
+    }
+
     // 根据是否有选中元素显示不同菜单项
     const hasSelected = this.model.selectedId !== null;
     const isConnecting = this.app.interaction.connectFromId !== null;
@@ -232,16 +246,6 @@ class UIManager {
       if (action === 'duplicate') li.style.display = this.model.selectedType === 'node' ? '' : 'none';
       if (action === 'delete') li.style.display = hasSelected ? '' : 'none';
     });
-
-    // 右键点击的节点也选中
-    const world = this.app.renderer.s2w(
-      x - this.app.canvas.getBoundingClientRect().left,
-      y - this.app.canvas.getBoundingClientRect().top
-    );
-    const node = findNodeAt(world.x, world.y, this.model.nodes);
-    if (node) {
-      this.model.selectNode(node.id);
-    }
   }
 
   hideContextMenu() {
@@ -354,7 +358,7 @@ class UIManager {
     if (node.type === 'stock') {
       fieldsHtml += `<div class="props-row">`;
       fieldsHtml += `<div class="props-group"><label>存量值</label>`;
-      fieldsHtml += `<input type="number" id="modal-value" value="${node.value}" step="any"></div>`;
+      fieldsHtml += `<input type="number" id="modal-value" value="${node.value}" step="10"></div>`;
       fieldsHtml += `<div class="props-group"><label>单位</label>`;
       fieldsHtml += `<input type="text" id="modal-unit" value="${this.escapeHtml(node.unit || '')}"></div>`;
       fieldsHtml += `</div>`;
@@ -366,7 +370,7 @@ class UIManager {
       fieldsHtml += `</select></div>`;
       fieldsHtml += `<div class="props-row">`;
       fieldsHtml += `<div class="props-group"><label>速率</label>`;
-      fieldsHtml += `<input type="number" id="modal-rate" value="${node.rate}" step="any"></div>`;
+      fieldsHtml += `<input type="number" id="modal-rate" value="${node.rate}" step="10"></div>`;
       fieldsHtml += `<div class="props-group"><label>单位</label>`;
       fieldsHtml += `<input type="text" id="modal-unit" value="${this.escapeHtml(node.unit || '')}"></div>`;
       fieldsHtml += `</div>`;
@@ -415,7 +419,7 @@ class UIManager {
     if (type === 'stock') {
       fieldsHtml += `<div class="props-row">`;
       fieldsHtml += `<div class="props-group"><label>存量值</label>`;
-      fieldsHtml += `<input type="number" id="modal-value" value="${defaults.value}" step="any"></div>`;
+      fieldsHtml += `<input type="number" id="modal-value" value="${defaults.value}" step="10"></div>`;
       fieldsHtml += `<div class="props-group"><label>单位</label>`;
       fieldsHtml += `<input type="text" id="modal-unit" value="${defaults.unit}"></div>`;
       fieldsHtml += `</div>`;
@@ -427,7 +431,7 @@ class UIManager {
       fieldsHtml += `</select></div>`;
       fieldsHtml += `<div class="props-row">`;
       fieldsHtml += `<div class="props-group"><label>速率</label>`;
-      fieldsHtml += `<input type="number" id="modal-rate" value="${defaults.rate}" step="any"></div>`;
+      fieldsHtml += `<input type="number" id="modal-rate" value="${defaults.rate}" step="10"></div>`;
       fieldsHtml += `<div class="props-group"><label>单位</label>`;
       fieldsHtml += `<input type="text" id="modal-unit" value="${defaults.unit}"></div>`;
       fieldsHtml += `</div>`;
@@ -549,8 +553,9 @@ class UIManager {
 
     const worldW = maxX - minX;
     const worldH = maxY - minY;
-    const canvasW = this.app.canvas.width;
-    const canvasH = this.app.canvas.height;
+    const dpr = window.devicePixelRatio || 1;
+    const canvasW = this.app.canvas.width / dpr;
+    const canvasH = this.app.canvas.height / dpr;
 
     const zoomX = canvasW / worldW;
     const zoomY = canvasH / worldH;

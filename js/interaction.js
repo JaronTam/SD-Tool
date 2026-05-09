@@ -184,17 +184,17 @@ class InteractionHandler {
   onKeyDown(e) {
     const ctrl = e.ctrlKey || e.metaKey;
 
-    // Delete: 删除选中元素
+    // Delete: 删除选中元素（仅当焦点不在可编辑元素上时触发）
     if (e.key === 'Delete' || e.key === 'Backspace') {
-      if (this.model.selectedId) {
+      if (this.model.selectedId && !this.isEditableFocused()) {
         e.preventDefault();
         this.deleteSelected();
         return;
       }
     }
 
-    // Escape: 取消操作
-    if (e.key === 'Escape') {
+    // Escape: 取消操作（仅当焦点不在可编辑元素上时触发）
+    if (e.key === 'Escape' && !this.isEditableFocused()) {
       if (this.connectFromId) this.cancelConnecting();
       else this.model.clearSelection();
       this.app.ui.hideProperties();
@@ -229,18 +229,18 @@ class InteractionHandler {
       return;
     }
 
-    // + / - : 缩放
-    if (e.key === '=' || e.key === '+') {
+    // + / - : 缩放（仅当焦点不在可编辑元素上时触发，避免干扰数字输入）
+    if ((e.key === '=' || e.key === '+') && !this.isEditableFocused()) {
       e.preventDefault();
       this.zoomAtCenter(1.15);
       return;
     }
-    if (e.key === '-') {
+    if (e.key === '-' && !this.isEditableFocused()) {
       e.preventDefault();
       this.zoomAtCenter(1 / 1.15);
       return;
     }
-    if (e.key === '0') {
+    if (e.key === '0' && !this.isEditableFocused()) {
       e.preventDefault();
       this.renderer.zoom = 1;
       this.app.ui.updateZoomLevel();
@@ -395,6 +395,16 @@ class InteractionHandler {
     this.renderer.offsetY = cy - (cy - this.renderer.offsetY) * ratio;
     this.renderer.zoom = newZoom;
     this.app.ui.updateZoomLevel();
+  }
+
+  /** 检查当前焦点是否在可编辑元素上（输入框、文本域、下拉框等） */
+  isEditableFocused() {
+    const el = document.activeElement;
+    if (!el) return false;
+    const tag = el.tagName.toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+    if (el.isContentEditable) return true;
+    return false;
   }
 
   updateHoverCursor(hovered, world) {
