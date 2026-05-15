@@ -112,7 +112,7 @@ class SDToolApp {
   /** 直接创建节点（不弹对话框，用于恢复/复制等场景） */
   createNode(type, x, y) {
     const node = this.model.createNode(type, x, y);
-    this.undoRedo.pushState('创建模块');
+    this.undoRedo.pushState({ type: 'create-node', nodeData: this._clone(node) });
     this.ui.updateModuleList();
     return node;
   }
@@ -124,8 +124,16 @@ class SDToolApp {
 
   /** 删除节点以及相连的连线 */
   deleteNode(nodeId) {
+    // 在删除前捕获节点和关联连线数据
+    const node = this.model.getNode(nodeId);
+    if (!node) return;
+    const nodeData = this._clone(node);
+    const connectionsData = this.model.connections
+      .filter(c => c.fromId === nodeId || c.toId === nodeId)
+      .map(c => this._clone(c));
+
     this.model.deleteNode(nodeId);
-    this.undoRedo.pushState('删除模块');
+    this.undoRedo.pushState({ type: 'delete-node', nodeData, connectionsData });
     this.ui.hideProperties();
     this.ui.updateModuleList();
   }
@@ -135,7 +143,7 @@ class SDToolApp {
   /** 创建连线并弹出属性面板 */
   createConnection(fromId, toId) {
     const conn = this.model.createConnection(fromId, toId);
-    this.undoRedo.pushState('创建连线');
+    this.undoRedo.pushState({ type: 'create-connection', connData: this._clone(conn) });
     // 选中连线并展示属性
     this.model.selectConnection(conn.id);
     this.ui.showProperties('connection');
@@ -144,9 +152,21 @@ class SDToolApp {
 
   /** 删除连线 */
   deleteConnection(connId) {
+    // 在删除前捕获连线数据
+    const conn = this.model.getConnection(connId);
+    if (!conn) return;
+    const connData = this._clone(conn);
+
     this.model.deleteConnection(connId);
-    this.undoRedo.pushState('删除连线');
+    this.undoRedo.pushState({ type: 'delete-connection', connData });
     this.ui.hideProperties();
+  }
+
+  // ---- 内部工具 ----
+
+  /** 深拷贝对象 */
+  _clone(obj) {
+    return JSON.parse(JSON.stringify(obj));
   }
 }
 

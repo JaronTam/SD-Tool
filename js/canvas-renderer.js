@@ -307,10 +307,14 @@ class CanvasRenderer {
         return { x: centerPos.x + dirX * t, y: centerPos.y + dirY * t };
       }
     } else {
-      const r = this.NODE_RADIUS * this.zoom * 0.78;
+      // 云形节点：使用与 drawSourceSinkNode 相同的极坐标曲线
+      // rr = r * (0.75 + 0.25 * (sin(3θ) * 0.5 + 0.5))
+      const R = this.NODE_RADIUS * this.zoom;
+      const angle = Math.atan2(dirY, dirX);
+      const cloudR = R * (0.75 + 0.25 * (Math.sin(angle * 3) * 0.5 + 0.5));
       return {
-        x: centerPos.x + dirX * r,
-        y: centerPos.y + dirY * r
+        x: centerPos.x + dirX * cloudR,
+        y: centerPos.y + dirY * cloudR
       };
     }
   }

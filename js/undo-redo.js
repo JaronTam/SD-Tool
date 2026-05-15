@@ -1,5 +1,6 @@
 /**
- * SD-Tool 撤销/重做系统
+ * SD-Tool 撤销/重做系统（命令模式）
+ * 存储增量命令而非全量快照，大幅降低内存占用
  */
 
 class UndoRedoManager {
@@ -8,18 +9,23 @@ class UndoRedoManager {
     this.stack = [];
     this.pointer = -1;
     this.maxSize = 200;
-    this.commandInProgress = null; // 用于批量操作
   }
 
-  /** 推送一个状态快照 */
-  pushState(actionLabel = '') {
-    // 如果指针不在栈顶, 截断未来的 states
+  /**
+   * 推送一个命令到撤销栈
+   * @param {Object} command - { type, ...data }
+   *   create-node:    { type: 'create-node', nodeData: {...} }
+   *   delete-node:    { type: 'delete-node', nodeData: {...}, connectionsData: [...] }
+   *   create-connection: { type: 'create-connection', connData: {...} }
+   *   delete-connection: { type: 'delete-connection', connData: {...} }
+   */
+  pushState(command) {
+    // 如果指针不在栈顶, 截断未来的命令
     if (this.pointer < this.stack.length - 1) {
       this.stack = this.stack.slice(0, this.pointer + 1);
     }
 
-    const snapshot = this.model.toJSON();
-    this.stack.push({ snapshot, label: actionLabel });
+    this.stack.push({ command });
     this.pointer++;
 
     // 限制栈大小
@@ -29,34 +35,77 @@ class UndoRedoManager {
     }
   }
 
-  /** 撤销 */
+  /** 撤销：执行当前命令的反向操作 */
   undo() {
     if (this.pointer < 0) return false;
 
-    // 如果当前是最新状态, 先保存当前状态
-    if (this.pointer === this.stack.length - 1) {
-      const current = this.model.toJSON();
-      this.stack.push({ snapshot: current, label: '(撤销前状态)' });
-      // pointer 仍然指向新 push 的栈顶 - 1, 即我们想要恢复的状态
-      this.pointer = this.stack.length - 2;
-    } else {
-      this.pointer--;
+    const entry = this.stack[this.pointer];
+    const cmd = entry.command;
+
+    switch (cmd.type) {
+      case 'create-node':
+        // 反向：移除节点（级联删除关联连线）
+        this.model.deleteNode(cmd.nodeData.id);
+        break;
+
+      case 'delete-node':
+        // 反向：恢复节点及其连线
+        this._restoreNode(cmd.nodeData, cmd.connectionsData);
+        break;
+
+      case 'create-connection':
+        // 反向：移除连线
+        this.model.deleteConnection(cmd.connData.id);
+        break;
+
+      case 'delete-connection':
+        // 反向：恢复连线
+        this.model.connections.push(this._clone(cmd.connData));
+        break;
+
+      default:
+        console.warn('UndoRedoManager: unknown command type', cmd.type);
+        return false;
     }
 
-    if (this.pointer < 0) {
-      this.pointer = 0;
-      return false;
-    }
-
-    this.model.fromJSON(this.stack[this.pointer].snapshot);
+    this.pointer--;
     return true;
   }
 
-  /** 重做 */
+  /** 重做：执行当前命令的正向操作 */
   redo() {
     if (this.pointer >= this.stack.length - 1) return false;
+
     this.pointer++;
-    this.model.fromJSON(this.stack[this.pointer].snapshot);
+    const entry = this.stack[this.pointer];
+    const cmd = entry.command;
+
+    switch (cmd.type) {
+      case 'create-node':
+        // 正向：重建节点
+        this.model.nodes.push(this._clone(cmd.nodeData));
+        break;
+
+      case 'delete-node':
+        // 正向：再次删除节点
+        this.model.deleteNode(cmd.nodeData.id);
+        break;
+
+      case 'create-connection':
+        // 正向：重建连线
+        this.model.connections.push(this._clone(cmd.connData));
+        break;
+
+      case 'delete-connection':
+        // 正向：再次删除连线
+        this.model.deleteConnection(cmd.connData.id);
+        break;
+
+      default:
+        console.warn('UndoRedoManager: unknown command type', cmd.type);
+        return false;
+    }
+
     return true;
   }
 
@@ -84,5 +133,22 @@ class UndoRedoManager {
       canUndo: this.canUndo(),
       canRedo: this.canRedo()
     };
+  }
+
+  // ---- 内部方法 ----
+
+  /** 深拷贝对象（仅处理 JSON 安全数据） */
+  _clone(obj) {
+    return JSON.parse(JSON.stringify(obj));
+  }
+
+  /** 恢复被删除的节点及其连线 */
+  _restoreNode(nodeData, connectionsData) {
+    this.model.nodes.push(this._clone(nodeData));
+    if (connectionsData && connectionsData.length > 0) {
+      for (const conn of connectionsData) {
+        this.model.connections.push(this._clone(conn));
+      }
+    }
   }
 }
